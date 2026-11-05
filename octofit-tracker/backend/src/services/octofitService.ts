@@ -71,7 +71,14 @@ export async function createTeam(_input: unknown) {
   if (users.length !== members.length) {
     throw Object.assign(new Error('One or more team members were not found'), { status: 404 });
   }
-  return Team.create({ name: name.trim(), mascot: mascot.trim(), members: users.map(({ _id }) => _id) });
+  const team = await Team.create({ name: name.trim(), mascot: mascot.trim(), members: users.map(({ _id }) => _id) });
+  if (users.length) {
+    const memberIds = users.map(({ _id }) => _id);
+    const previousTeamIds = users.flatMap((user) => (user.team ? [user.team] : []));
+    await User.updateMany({ _id: { $in: memberIds } }, { $set: { team: team._id } });
+    await Team.updateMany({ _id: { $in: previousTeamIds } }, { $pull: { members: { $in: memberIds } } });
+  }
+  return team;
 }
 
 export async function getLeaderboard() {
